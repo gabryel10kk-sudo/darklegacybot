@@ -1,4 +1,4 @@
-```python
+
 import os
 import random
 import asyncio
@@ -406,4 +406,3 @@ if not TOKEN:
 
 
 bot.run(TOKEN)
-```
