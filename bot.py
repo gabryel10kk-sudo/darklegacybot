@@ -1,23 +1,17 @@
-
+```python
 import os
 import random
-from datetime import datetime, timedelta
+import asyncio
+import json
+from datetime import datetime
 
 import discord
 from discord.ext import commands, tasks
 
 TOKEN = os.getenv("TOKEN")
 
-# =========================
-# CHANNELS
-# =========================
-
 STATUS_CHANNEL_ID = 1536651130594009171
 BANLIST_CHANNEL_ID = 1536615625219252345
-
-# =========================
-# SERVER STATUS
-# =========================
 
 BANNER_URL = (
     "https://cdn.discordapp.com/attachments/"
@@ -28,24 +22,11 @@ BANNER_URL = (
 MAX_PLAYERS = 32
 
 MAPS = [
-    "de_mirage",
-    "de_inferno",
-    "de_dust2",
-    "de_nuke",
-    "de_train",
-    "de_cache",
-    "de_overpass",
-    "de_cbble",
-    "de_tuscan",
-    "de_aztec",
-    "de_lego",
-    "awp_lego",
-    "awp_india",
-    "aim_map",
-    "cs_assault",
-    "cs_italy",
-    "cs_office",
-    "cs_militia",
+    "de_mirage", "de_inferno", "de_dust2", "de_nuke",
+    "de_train", "de_cache", "de_overpass", "de_cbble",
+    "de_tuscan", "de_aztec", "de_lego", "awp_lego",
+    "awp_india", "aim_map", "cs_assault", "cs_italy",
+    "cs_office", "cs_militia",
 ]
 
 
@@ -54,30 +35,30 @@ def get_players():
 
     if 7 <= hour < 9:
         return random.randint(5, 6)
-    elif 9 <= hour < 12:
+    if 9 <= hour < 12:
         return random.randint(12, 14)
-    elif 12 <= hour < 14:
+    if 12 <= hour < 14:
         return random.randint(16, 19)
-    elif 14 <= hour < 17:
+    if 14 <= hour < 17:
         return random.randint(18, 22)
-    elif 17 <= hour < 19:
+    if 17 <= hour < 19:
         return random.randint(23, 28)
-    elif 19 <= hour < 20:
+    if 19 <= hour < 20:
         return random.randint(27, 31)
-    elif 20 <= hour < 23:
+    if 20 <= hour < 23:
         return random.randint(29, 32)
-    elif 23 <= hour:
+    if 23 <= hour:
         return random.randint(24, 29)
-    elif hour == 0:
+    if hour == 0:
         return random.randint(20, 24)
-    elif hour == 1:
+    if hour == 1:
         return random.randint(14, 18)
-    elif hour == 2:
+    if hour == 2:
         return random.randint(10, 14)
-    elif 3 <= hour < 5:
+    if 3 <= hour < 5:
         return random.randint(7, 9)
-    else:
-        return random.randint(4, 7)
+
+    return random.randint(4, 7)
 
 
 def create_status_embed():
@@ -96,31 +77,26 @@ def create_status_embed():
         value=f"`{current_map}`",
         inline=True,
     )
-
     embed.add_field(
         name="👥 PLAYERS",
         value=f"`{players}/{MAX_PLAYERS}`",
         inline=True,
     )
-
     embed.add_field(
         name="🌍 REGION",
         value="**INTERNATIONAL**",
         inline=True,
     )
-
     embed.add_field(
         name="⚡ PERFORMANCE",
         value="**OPTIMIZED**",
         inline=True,
     )
-
     embed.add_field(
         name="🌐 SERVER ACTIVITY",
         value="`24/7 ACTIVITY`",
         inline=True,
     )
-
     embed.add_field(
         name="🔄 STATUS",
         value="**LIVE • AUTO UPDATE**",
@@ -128,10 +104,7 @@ def create_status_embed():
     )
 
     embed.set_image(url=BANNER_URL)
-
-    embed.set_footer(
-        text="Dark Legacy • Classic CS 1.6 Community"
-    )
+    embed.set_footer(text="Dark Legacy • Classic CS 1.6 Community")
 
     return embed
 
@@ -146,20 +119,13 @@ async def send_status_message():
     try:
         await channel.send(embed=create_status_embed())
         print("✅ Status message sent.")
-
-    except discord.HTTPException as error:
-        print(f"❌ Discord HTTP error: {error}")
-
     except Exception as error:
         print(f"❌ Status error: {error}")
 
 
 @tasks.loop(minutes=30)
 async def status_loop():
-    try:
-        await send_status_message()
-    except Exception as error:
-        print(f"❌ Status loop error: {error}")
+    await send_status_message()
 
 
 @status_loop.before_loop
@@ -168,103 +134,146 @@ async def before_status_loop():
 
 
 # =========================
-# BANLIST TEST GENERATOR
+# ANNOUNCEMENT DATA
 # =========================
 
 COUNTRIES = [
-    ("🇷🇴", "Romania", ["AndreiFPS", "MihaiX", "RaduGaming", "Ionut.exe", "VladFPS"]),
-    ("🇧🇷", "Brazil", ["RafinhaBR", "LucasFPS", "JoaoX", "Pedrinho", "GabrielBR"]),
-    ("🇺🇸", "United States", ["ShadowFPS", "GhostHunter", "DarkNova", "MikeGaming"]),
-    ("🇬🇧", "United Kingdom", ["HarryFPS", "JackGaming", "GhostUK", "LewisX"]),
-    ("🇩🇪", "Germany", ["LukasX", "KaiserFPS", "NikoWolf", "MaxGaming"]),
-    ("🇫🇷", "France", ["LouisFPS", "AlexFR", "ShadowFR", "TheoGaming"]),
-    ("🇪🇸", "Spain", ["CarlosFPS", "DaniGG", "AlejandroX", "DiegoGaming"]),
-    ("🇮🇹", "Italy", ["MarcoFPS", "LucaGaming", "MatteoX", "DavideGG"]),
-    ("🇵🇹", "Portugal", ["JoaoFPS", "TiagoX", "RuiGaming", "PedroPT"]),
-    ("🇵🇱", "Poland", ["KubaFPS", "MateuszX", "KacperGG", "JakubGaming"]),
-    ("🇹🇷", "Turkey", ["EmirX", "KaanFPS", "MertGG", "BurakGaming"]),
-    ("🇷🇸", "Serbia", ["NikolaFPS", "MarkoX", "LukaGaming", "StefanGG"]),
-    ("🇭🇷", "Croatia", ["IvanFPS", "LukaX", "MarkoGaming", "MateoGG"]),
-    ("🇧🇬", "Bulgaria", ["GeorgiFPS", "IvanBG", "DimitarX", "NikolayGG"]),
-    ("🇬🇷", "Greece", ["NikosFPS", "GiorgosX", "KostasGaming", "DimitrisGG"]),
-    ("🇭🇺", "Hungary", ["MateFPS", "BenceX", "DanielHU", "MarkGaming"]),
-    ("🇨🇿", "Czech Republic", ["JakubCZ", "PetrFPS", "MartinX", "DavidGaming"]),
-    ("🇸🇰", "Slovakia", ["MarekFPS", "TomasX", "LukasSK", "PeterGaming"]),
-    ("🇺🇦", "Ukraine", ["DimaFPS", "AndriyX", "MaksGaming", "SashaUA"]),
-    ("🇲🇩", "Moldova", ["IonFPS", "AndreiMD", "SergiuX", "VladMD"]),
-    ("🇳🇱", "Netherlands", ["DaanFPS", "LarsX", "FinnGaming", "SemGG"]),
-    ("🇧🇪", "Belgium", ["LouisBE", "NoahFPS", "LucasX", "MilanGaming"]),
-    ("🇨🇭", "Switzerland", ["LucaCH", "NoahFPS", "LeonX", "JanGaming"]),
-    ("🇦🇹", "Austria", ["FelixFPS", "LukasAT", "MaxX", "DavidGaming"]),
-    ("🇸🇪", "Sweden", ["ErikFPS", "LiamSE", "OscarX", "ViktorGaming"]),
-    ("🇳🇴", "Norway", ["OskarNO", "LarsFPS", "MagnusX", "HenrikGaming"]),
-    ("🇩🇰", "Denmark", ["MikkelFPS", "EmilDK", "NoahX", "LucasGaming"]),
-    ("🇫🇮", "Finland", ["EliasFPS", "MikaX", "JoonasGaming", "AleksiGG"]),
-    ("🇮🇪", "Ireland", ["SeanFPS", "LiamIRL", "ConnorX", "RyanGaming"]),
-    ("🇨🇦", "Canada", ["RyanCA", "EthanFPS", "LoganX", "NoahGaming"]),
-    ("🇲🇽", "Mexico", ["CarlosMX", "DiegoFPS", "LuisX", "MiguelGaming"]),
-    ("🇦🇷", "Argentina", ["MateoAR", "TomasFPS", "SantiX", "NicoGaming"]),
-    ("🇨🇱", "Chile", ["DiegoCL", "MatiasFPS", "NicolasX", "FelipeGaming"]),
-    ("🇨🇴", "Colombia", ["JuanCO", "MateoFPS", "SantiagoX", "AndresGaming"]),
-    ("🇯🇵", "Japan", ["KaitoFPS", "RenX", "HiroGaming", "YukiGG"]),
-    ("🇰🇷", "South Korea", ["MinJaeFPS", "JoonX", "HyunGaming", "JihoGG"]),
-    ("🇮🇳", "India", ["ArjunFPS", "RohanX", "AmanGaming", "RahulGG"]),
-    ("🇦🇺", "Australia", ["JackAU", "LiamFPS", "CooperX", "MasonGaming"]),
-    ("🇳🇿", "New Zealand", ["LiamNZ", "JackNZ", "MasonX", "OliverGaming"]),
-    ("🇿🇦", "South Africa", ["LiamZA", "DylanFPS", "RyanX", "KyleGaming"]),
-    ("🇪🇬", "Egypt", ["OmarFPS", "AhmedX", "KarimGaming", "YoussefGG"]),
-    ("🇸🇦", "Saudi Arabia", ["FahadFPS", "OmarX", "SaadGaming", "KhalidGG"]),
-    ("🇦🇪", "United Arab Emirates", ["ZayedFPS", "OmarAE", "HamdanX", "RashidGaming"]),
-    ("🇮🇱", "Israel", ["NoamFPS", "DanielIL", "EliX", "YonatanGaming"]),
-    ("🇮🇩", "Indonesia", ["RizkyFPS", "DimasX", "BimaGaming", "FajarGG"]),
-    ("🇲🇾", "Malaysia", ["AmirMY", "HakimFPS", "DanialX", "FarisGaming"]),
-    ("🇸🇬", "Singapore", ["RyanSG", "JayFPS", "EthanX", "KaiGaming"]),
-    ("🇵🇭", "Philippines", ["MiguelPH", "JoshFPS", "CarloX", "PaoloGaming"]),
-    ("🇹🇭", "Thailand", ["NarinFPS", "BeamX", "KritGaming", "NonGG"]),
-    ("🇻🇳", "Vietnam", ["MinhFPS", "LongX", "KhanhGaming", "NamGG"]),
-    ("🇵🇰", "Pakistan", ["AliFPS", "HamzaX", "UsmanGaming", "BilalGG"]),
-    ("🇧🇩", "Bangladesh", ["ArifFPS", "RafiX", "NabilGaming", "SiamGG"]),
-    ("🇰🇿", "Kazakhstan", ["ArmanFPS", "DiasX", "NursultanGaming", "AlikhanGG"]),
-    ("🇬🇪", "Georgia", ["GiorgiFPS", "NikaX", "SabaGaming", "LukaGE"]),
-    ("🇦🇲", "Armenia", ["ArmanAM", "TigranFPS", "LevonX", "HaykGaming"]),
-    ("🇦🇿", "Azerbaijan", ["AliAZ", "MuradFPS", "EminX", "TuralGaming"]),
+    ("🇷🇴", "Romania"),
+    ("🇧🇷", "Brazil"),
+    ("🇺🇸", "United States"),
+    ("🇬🇧", "United Kingdom"),
+    ("🇩🇪", "Germany"),
+    ("🇫🇷", "France"),
+    ("🇪🇸", "Spain"),
+    ("🇮🇹", "Italy"),
+    ("🇵🇹", "Portugal"),
+    ("🇵🇱", "Poland"),
+    ("🇹🇷", "Turkey"),
+    ("🇷🇸", "Serbia"),
+    ("🇭🇷", "Croatia"),
+    ("🇧🇬", "Bulgaria"),
+    ("🇬🇷", "Greece"),
+    ("🇭🇺", "Hungary"),
+    ("🇨🇿", "Czech Republic"),
+    ("🇸🇰", "Slovakia"),
+    ("🇺🇦", "Ukraine"),
+    ("🇲🇩", "Moldova"),
+    ("🇳🇱", "Netherlands"),
+    ("🇧🇪", "Belgium"),
+    ("🇨🇭", "Switzerland"),
+    ("🇦🇹", "Austria"),
+    ("🇸🇪", "Sweden"),
+    ("🇳🇴", "Norway"),
+    ("🇩🇰", "Denmark"),
+    ("🇫🇮", "Finland"),
+    ("🇮🇪", "Ireland"),
+    ("🇨🇦", "Canada"),
+    ("🇲🇽", "Mexico"),
+    ("🇦🇷", "Argentina"),
+    ("🇨🇱", "Chile"),
+    ("🇨🇴", "Colombia"),
+    ("🇯🇵", "Japan"),
+    ("🇰🇷", "South Korea"),
+    ("🇮🇳", "India"),
+    ("🇦🇺", "Australia"),
+    ("🇳🇿", "New Zealand"),
+    ("🇿🇦", "South Africa"),
+    ("🇪🇬", "Egypt"),
+    ("🇸🇦", "Saudi Arabia"),
+    ("🇦🇪", "United Arab Emirates"),
+    ("🇮🇩", "Indonesia"),
+    ("🇲🇾", "Malaysia"),
+    ("🇸🇬", "Singapore"),
+    ("🇵🇭", "Philippines"),
+    ("🇹🇭", "Thailand"),
+    ("🇻🇳", "Vietnam"),
 ]
 
 
-CHEAT_REASONS = [
-    ("Aimbot", "Permanent"),
-    ("Wallhack", "Permanent"),
-    ("ESP", "Permanent"),
-    ("Speed Hack", "Permanent"),
-    ("Triggerbot", "Permanent"),
-    ("No Recoil", "Permanent"),
-    ("Cheat Software Detected", "Permanent"),
-    ("Multiple Cheat Signatures", "Permanent"),
+NAME_PARTS = [
+    "Shadow", "Ghost", "Dark", "Nova", "Raven",
+    "Viper", "Blaze", "Frost", "Storm", "Night",
+    "Rapid", "Silent", "Phantom", "Zero", "Iron",
+    "Wolf", "Venom", "Killer", "Hunter", "Sniper",
 ]
 
-EXPLOIT_REASONS = [
-    ("Bug Abuse", "7 Days"),
-    ("Map Exploit", "3 Days"),
-    ("Server Exploit", "7 Days"),
-    ("Game Exploit", "14 Days"),
+
+SUFFIXES = [
+    "FPS", "GG", "X", "Gaming", "Strike",
+    "Nox", "Rush", "Core", "Wave", "Zone",
 ]
 
-BEHAVIOR_REASONS = [
-    ("Toxic Behavior", "2 Days"),
-    ("Harassment", "3 Days"),
-    ("Abusive Language", "1 Day"),
-    ("Spam", "1 Day"),
-    ("Disruptive Behavior", "3 Days"),
-    ("Repeated Toxicity", "7 Days"),
+
+USED_NAMES_FILE = "used_names.json"
+
+
+def load_used_names():
+    try:
+        with open(USED_NAMES_FILE, "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        if isinstance(data, list):
+            return set(data)
+
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+
+    return set()
+
+
+USED_NAMES = load_used_names()
+
+
+def save_used_names():
+    try:
+        with open(USED_NAMES_FILE, "w", encoding="utf-8") as file:
+            json.dump(
+                sorted(USED_NAMES),
+                file,
+                ensure_ascii=False,
+                indent=2,
+            )
+    except OSError as error:
+        print(f"⚠️ Could not save used names: {error}")
+
+
+def generate_unique_name():
+    for _ in range(100):
+        name = (
+            random.choice(NAME_PARTS)
+            + random.choice(SUFFIXES)
+            + str(random.randint(10, 9999))
+        )
+
+        if name not in USED_NAMES:
+            USED_NAMES.add(name)
+            save_used_names()
+            return name
+
+    name = f"Player{random.randint(100000, 999999)}"
+    USED_NAMES.add(name)
+    save_used_names()
+
+    return name
+
+
+REASONS = [
+    ("Aimbot", "Permanent", "🤖 Anti-Cheat", "Dark Legacy Anti-Cheat"),
+    ("Wallhack", "Permanent", "🤖 Anti-Cheat", "Dark Legacy Anti-Cheat"),
+    ("ESP", "Permanent", "🤖 Anti-Cheat", "Dark Legacy Anti-Cheat"),
+    ("Speed Hack", "Permanent", "🤖 Anti-Cheat", "Dark Legacy Anti-Cheat"),
+    ("Triggerbot", "Permanent", "🤖 Anti-Cheat", "Dark Legacy Anti-Cheat"),
+    ("Cheat Software Detected", "Permanent", "🤖 Anti-Cheat", "Dark Legacy Anti-Cheat"),
+    ("Bug Abuse", "7 Days", "👑 Admin", "Dark Legacy Staff"),
+    ("Map Exploit", "3 Days", "👑 Admin", "Dark Legacy Staff"),
+    ("Toxic Behavior", "2 Days", "👑 Admin", "Dark Legacy Staff"),
+    ("Harassment", "3 Days", "👑 Admin", "Dark Legacy Staff"),
+    ("Abusive Language", "1 Day", "👑 Admin", "Dark Legacy Staff"),
+    ("Spam", "1 Day", "👑 Admin", "Dark Legacy Staff"),
+    ("Ban Evasion", "14 Days", "👑 Admin", "Dark Legacy Staff"),
+    ("Advertising", "3 Days", "👑 Admin", "Dark Legacy Staff"),
 ]
 
-OTHER_REASONS = [
-    ("Ban Evasion", "14 Days"),
-    ("Multiple Accounts", "7 Days"),
-    ("Advertising", "3 Days"),
-    ("Impersonation", "7 Days"),
-    ("Unauthorized Modification", "14 Days"),
-]
 
 BAN_TITLES = [
     ("🔨", "PLAYER BANNED"),
@@ -273,33 +282,13 @@ BAN_TITLES = [
 ]
 
 
-def create_ban_embed():
-    flag, country, names = random.choice(COUNTRIES)
-    player = random.choice(names)
+def create_announcement_embed():
+    flag, country = random.choice(COUNTRIES)
+    player = generate_unique_name()
 
-    category = random.choice(
-        ["cheat", "exploit", "behavior", "other"]
+    reason, duration, source_name, source_value = random.choice(
+        REASONS
     )
-
-    if category == "cheat":
-        reason, duration = random.choice(CHEAT_REASONS)
-        source_name = "🤖 Anti-Cheat"
-        source_value = "Dark Legacy Anti-Cheat"
-
-    elif category == "exploit":
-        reason, duration = random.choice(EXPLOIT_REASONS)
-        source_name = "👑 Admin"
-        source_value = "Dark Legacy Staff"
-
-    elif category == "behavior":
-        reason, duration = random.choice(BEHAVIOR_REASONS)
-        source_name = "👑 Admin"
-        source_value = "Dark Legacy Staff"
-
-    else:
-        reason, duration = random.choice(OTHER_REASONS)
-        source_name = "👑 Admin"
-        source_value = "Dark Legacy Staff"
 
     icon, title = random.choice(BAN_TITLES)
 
@@ -339,42 +328,33 @@ def create_ban_embed():
         inline=True,
     )
 
+    embed.set_footer(text="Dark Legacy • announce")
+
     return embed
 
 
-async def send_ban_message():
+async def send_announcement():
     channel = bot.get_channel(BANLIST_CHANNEL_ID)
 
     if channel is None:
-        print("❌ Banlist channel not found.")
+        print("❌ Announcement channel not found.")
         return
 
     try:
-        await channel.send(embed=create_ban_embed())
-        print("✅ Banlist message sent.")
-
-    except discord.HTTPException as error:
-        print(f"❌ Banlist Discord error: {error}")
-
+        await channel.send(embed=create_announcement_embed())
+        print("✅ Announcement sent.")
     except Exception as error:
-        print(f"❌ Banlist error: {error}")
+        print(f"❌ Announcement error: {error}")
 
 
 @tasks.loop(hours=2)
-async def banlist_loop():
-    # Random delay between 0 and 60 minutes.
-    delay = random.randint(0, 60)
-
-    if delay > 0:
-        await discord.utils.sleep_until(
-            datetime.now() + timedelta(minutes=delay)
-        )
-
-    await send_ban_message()
+async def announcement_loop():
+    await asyncio.sleep(random.randint(0, 3600))
+    await send_announcement()
 
 
-@banlist_loop.before_loop
-async def before_banlist_loop():
+@announcement_loop.before_loop
+async def before_announcement_loop():
     await bot.wait_until_ready()
 
 
@@ -398,8 +378,8 @@ async def on_ready():
     if not status_loop.is_running():
         status_loop.start()
 
-    if not banlist_loop.is_running():
-        banlist_loop.start()
+    if not announcement_loop.is_running():
+        announcement_loop.start()
 
     if not getattr(bot, "initial_message_sent", False):
         bot.initial_message_sent = True
