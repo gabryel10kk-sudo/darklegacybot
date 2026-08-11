@@ -109,10 +109,11 @@ def create_status_embed():
         inline=True,
     )
 
-    embed.add_field(
-        name="🌐 SERVER ACTIVITY",
-        value="`24/7 ACTIVITY",
-        inline=True,
+embed.add_field(
+    name="🌐 SERVER ACTIVITY",
+    value="`24/7 ACTIVITY`",
+    inline=True,
+
     )
 
     embed.set_image(url=BANNER_URL)
