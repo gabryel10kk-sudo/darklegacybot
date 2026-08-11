@@ -34,7 +34,7 @@ MAPS = [
 ]
 
 
-def get_demo_players():
+def get_players():
     hour = datetime.now().hour
 
     if 7 <= hour < 9:
@@ -66,12 +66,12 @@ def get_demo_players():
 
 
 def create_status_embed():
-    players = get_demo_players()
+    players = get_players()
     current_map = random.choice(MAPS)
 
     embed = discord.Embed(
-        title="🎮 TEST RAILWAY 123",
-        description="🟢 **SERVER ONLINE**\n━━━━━━━━━━━━━━━━━━━━",
+        title="🎮 DARK LEGACY • SERVER STATUS",
+        description="🟢 **SERVER ONLINE**",
         color=discord.Color.dark_red(),
         timestamp=datetime.now(),
     )
@@ -100,8 +100,10 @@ def create_status_embed():
         inline=True,
     )
 
-    name="🌐 SERVER ACTIVITY — TEST 247",
-value="`TEST 247`",
+    embed.add_field(
+        name="🌐 SERVER ACTIVITY",
+        value="`24/7 ACTIVITY`",
+        inline=True,
     )
 
     embed.add_field(
@@ -127,21 +129,21 @@ async def send_status_message():
         return
 
     try:
-        await channel.send(embed=create_status_embed())
+        embed = create_status_embed()
+        await channel.send(embed=embed)
         print("✅ Status message sent.")
 
     except discord.HTTPException as error:
         print(f"❌ Discord HTTP error: {error}")
 
     except Exception as error:
-        print(f"❌ Status error: {error}")
+        print(f"❌ Error sending status: {error}")
 
 
 @tasks.loop(minutes=30)
 async def status_loop():
     try:
         await send_status_message()
-
     except Exception as error:
         print(f"❌ Status loop error: {error}")
 
@@ -168,14 +170,14 @@ async def on_ready():
     if not status_loop.is_running():
         status_loop.start()
 
-    if not getattr(bot, "_initial_status_sent", False):
-        bot._initial_status_sent = True
+    if not getattr(bot, "initial_message_sent", False):
+        bot.initial_message_sent = True
         await send_status_message()
 
 
 @bot.event
 async def on_disconnect():
-    print("⚠️ Discord disconnected. Waiting for automatic reconnect...")
+    print("⚠️ Discord disconnected. Automatic reconnect enabled.")
 
 
 @bot.event
