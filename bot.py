@@ -100,10 +100,8 @@ def create_status_embed():
         inline=True,
     )
 
-    embed.add_field(
-        name="🌐 SERVER ACTIVITY",
-        value="`24/7 ACTIVITY`",
-        inline=True,
+    name="🌐 SERVER ACTIVITY — TEST 247",
+value="`TEST 247`",
     )
 
     embed.add_field(
