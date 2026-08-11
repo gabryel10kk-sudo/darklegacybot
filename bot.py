@@ -70,7 +70,7 @@ def create_status_embed():
     current_map = random.choice(MAPS)
 
     embed = discord.Embed(
-        title="🎮 DARK LEGACY • SERVER STATUS",
+        title="🎮 TEST RAILWAY 123",
         description="🟢 **SERVER ONLINE**\n━━━━━━━━━━━━━━━━━━━━",
         color=discord.Color.dark_red(),
         timestamp=datetime.now(),
