@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import asyncio
 from datetime import datetime, date
 
 import discord
@@ -18,7 +19,6 @@ VIP_STATUS_CHANNEL_ID = 1536952688443658342
 BANLIST_CHANNEL_ID = 1536615625219252345
 
 MAX_PLAYERS = 32
-MAX_VIP_ONLINE = 16
 
 
 # ============================================================
@@ -31,7 +31,7 @@ SERVER_STATUS_IMAGE = (
     "5896a8dd-4896-4512-a1a5-48bd6f6f83ea.png"
 )
 
-VIP_STATUS_IMAGE = (
+VIP_IMAGE = (
     "https://raw.githubusercontent.com/"
     "gabryel10kk-sudo/darklegacybot/main/"
     "csgo-counter-terrorist-vs-terrorist-4k.jpg"
@@ -76,6 +76,7 @@ def smooth_players(low, high):
 
     if last_players is None:
         value = random.randint(low, high)
+
     else:
         minimum = max(low, last_players - 3)
         maximum = min(high, last_players + 3)
@@ -87,33 +88,46 @@ def smooth_players(low, high):
         value = random.randint(minimum, maximum)
 
     last_players = value
+
     return value
 
 
 def get_players():
+    """
+    Simulated server population based on the time of day.
+    """
+
     hour = datetime.now().hour
 
+    # 00:00 - 02:59
     if 0 <= hour < 3:
         return smooth_players(14, 24)
 
+    # 03:00 - 05:59
     if 3 <= hour < 6:
         return smooth_players(9, 14)
 
+    # 06:00 - 08:59
     if 6 <= hour < 9:
         return smooth_players(8, 13)
 
+    # 09:00 - 11:59
     if 9 <= hour < 12:
         return smooth_players(12, 18)
 
+    # 12:00 - 14:59
     if 12 <= hour < 15:
         return smooth_players(16, 22)
 
+    # 15:00 - 17:59
     if 15 <= hour < 18:
         return smooth_players(20, 27)
 
+    # 18:00 - 19:59
     if 18 <= hour < 20:
         return smooth_players(24, 30)
 
+    # 20:00 - 23:59
     return smooth_players(27, 32)
 
 
@@ -131,7 +145,7 @@ bot = commands.Bot(
 
 
 # ============================================================
-# SERVER STATUS EMBED
+# SERVER STATUS
 # ============================================================
 
 def create_status_embed():
@@ -190,8 +204,87 @@ def create_status_embed():
     return embed
 
 
+async def find_existing_message(channel, title):
+    """
+    Finds the existing bot message with the requested title.
+    This prevents duplicate status messages.
+    """
+
+    try:
+        async for message in channel.history(limit=100):
+
+            if message.author.id != bot.user.id:
+                continue
+
+            if not message.embeds:
+                continue
+
+            if message.embeds[0].title == title:
+                return message
+
+    except Exception as error:
+        print(
+            f"❌ Could not search existing messages: {error}"
+        )
+
+    return None
+
+
+async def update_server_status():
+    channel = bot.get_channel(STATUS_CHANNEL_ID)
+
+    if channel is None:
+        print("❌ Server Status channel not found.")
+        return
+
+    try:
+        message = await find_existing_message(
+            channel,
+            "🎮 DARK LEGACY • SERVER STATUS",
+        )
+
+        embed = create_status_embed()
+
+        # Existing message = EDIT IT
+        if message is not None:
+
+            await message.edit(
+                embed=embed
+            )
+
+            print(
+                "✅ Server Status updated."
+            )
+
+            return
+
+        # No existing message = CREATE ONE
+        await channel.send(
+            embed=embed
+        )
+
+        print(
+            "✅ Server Status message created."
+        )
+
+    except Exception as error:
+        print(
+            f"❌ Server Status error: {error}"
+        )
+
+
+@tasks.loop(minutes=30)
+async def status_loop():
+    await update_server_status()
+
+
+@status_loop.before_loop
+async def before_status_loop():
+    await bot.wait_until_ready()
+
+
 # ============================================================
-# VIP SYSTEM
+# VIP STATUS
 # ============================================================
 
 VIP_START_TOTAL = 36
@@ -202,6 +295,14 @@ last_vip_online = None
 
 
 def get_total_vips():
+    """
+    Starts with 36 VIP players.
+
+    From September 10, 2026:
+    +2 VIP players per day
+    until reaching 100.
+    """
+
     today = datetime.now().date()
 
     if today < VIP_GROWTH_START:
@@ -213,34 +314,65 @@ def get_total_vips():
 
     total = (
         VIP_START_TOTAL
-        + days_since_growth * 2
+        + (days_since_growth * 2)
     )
 
-    return min(total, VIP_MAX_TOTAL)
+    return min(
+        total,
+        VIP_MAX_TOTAL,
+    )
 
 
 def get_vip_online():
+    """
+    VIP online count is completely independent
+    from the normal Server Status player count.
+
+    This means VIP online can be higher than
+    normal server players.
+    """
+
     global last_vip_online
 
     total_vips = get_total_vips()
-    maximum = min(MAX_VIP_ONLINE, total_vips)
+
+    # Keep it realistic but independent.
+    maximum = min(
+        total_vips,
+        18,
+    )
+
+    minimum_allowed = 4
+
+    if maximum < minimum_allowed:
+        minimum_allowed = maximum
 
     if last_vip_online is None:
-        value = random.randint(5, maximum)
+
+        value = random.randint(
+            minimum_allowed,
+            maximum,
+        )
+
     else:
-        minimum = max(1, last_vip_online - 2)
+
+        minimum = max(
+            minimum_allowed,
+            last_vip_online - 2,
+        )
+
         maximum_value = min(
             maximum,
-            last_vip_online + 2
+            last_vip_online + 2,
         )
 
         if minimum > maximum_value:
-            minimum = 1
+            minimum = minimum_allowed
             maximum_value = maximum
 
         value = random.randint(
             minimum,
-            maximum_value
+            maximum_value,
         )
 
     last_vip_online = value
@@ -254,15 +386,17 @@ def create_vip_status_embed():
 
     embed = discord.Embed(
         title="💎 DARK LEGACY VIP",
-        description="💎 **VIP MEMBERSHIP STATUS**",
+        description=(
+            "**VIP > PREMIUM SUBSCRIPTION**"
+        ),
         color=discord.Color.purple(),
         timestamp=datetime.now(),
     )
 
     embed.add_field(
         name="💎 VIP ONLINE",
-        value=f"**{vip_online} / {MAX_VIP_ONLINE}**",
-        inline=True,
+        value=f"`{vip_online} players online`",
+        inline=False,
     )
 
     embed.add_field(
@@ -278,24 +412,20 @@ def create_vip_status_embed():
     )
 
     embed.add_field(
-        name="✨ VIP STATUS",
-        value="**ACTIVE • EXCLUSIVE**",
+        name="⚡ VIP PERKS",
+        value="**UNLOCKED**",
         inline=True,
     )
 
     embed.add_field(
-        name="⚡ VIP ACCESS",
-        value="**AVAILABLE**",
-        inline=True,
-    )
-
-    embed.add_field(
-        name="🔄 STATUS",
+        name="🟢 VIP STATUS",
         value="**LIVE • AUTO UPDATE**",
-        inline=True,
+        inline=False,
     )
 
-    embed.set_image(url=VIP_STATUS_IMAGE)
+    embed.set_image(
+        url=VIP_IMAGE
+    )
 
     embed.set_footer(
         text="Dark Legacy • Exclusive VIP Membership"
@@ -303,91 +433,6 @@ def create_vip_status_embed():
 
     return embed
 
-
-# ============================================================
-# FIND EXISTING BOT MESSAGE
-# ============================================================
-
-async def find_existing_message(channel, title):
-    try:
-        async for message in channel.history(limit=100):
-
-            if message.author.id != bot.user.id:
-                continue
-
-            if not message.embeds:
-                continue
-
-            if message.embeds[0].title == title:
-                return message
-
-    except Exception as error:
-        print(
-            f"❌ Could not search messages: {error}"
-        )
-
-    return None
-
-
-# ============================================================
-# SERVER STATUS UPDATE
-# ============================================================
-
-async def update_server_status():
-    channel = bot.get_channel(STATUS_CHANNEL_ID)
-
-    if channel is None:
-        print(
-            "❌ Server Status channel not found."
-        )
-        return
-
-    try:
-        message = await find_existing_message(
-            channel,
-            "🎮 DARK LEGACY • SERVER STATUS",
-        )
-
-        embed = create_status_embed()
-
-        if message is not None:
-            await message.edit(embed=embed)
-
-            print(
-                "✅ Server Status edited "
-                "(same message)."
-            )
-
-        else:
-            await channel.send(embed=embed)
-
-            print(
-                "✅ Server Status message created."
-            )
-
-    except Exception as error:
-        print(
-            f"❌ Server Status error: {error}"
-        )
-
-
-# ============================================================
-# SERVER STATUS LOOP
-# ============================================================
-
-@tasks.loop(minutes=30)
-async def status_loop():
-    await update_server_status()
-
-
-@status_loop.before_loop
-async def before_status_loop():
-    await bot.wait_until_ready()
-
-
-# ============================================================
-# VIP STATUS UPDATE
-# ============================================================
 
 async def update_vip_status():
     channel = bot.get_channel(
@@ -408,30 +453,33 @@ async def update_vip_status():
 
         embed = create_vip_status_embed()
 
+        # Existing VIP message = EDIT IT
         if message is not None:
-            await message.edit(embed=embed)
 
-            print(
-                "✅ VIP Status edited "
-                "(same message)."
+            await message.edit(
+                embed=embed
             )
 
-        else:
-            await channel.send(embed=embed)
-
             print(
-                "✅ VIP Status message created."
+                "✅ VIP Status updated."
             )
+
+            return
+
+        # No existing VIP message = CREATE ONE
+        await channel.send(
+            embed=embed
+        )
+
+        print(
+            "✅ VIP Status message created."
+        )
 
     except Exception as error:
         print(
             f"❌ VIP Status error: {error}"
         )
 
-
-# ============================================================
-# VIP LOOP
-# ============================================================
 
 @tasks.loop(minutes=30)
 async def vip_status_loop():
@@ -444,7 +492,7 @@ async def before_vip_status_loop():
 
 
 # ============================================================
-# BANLIST COUNTRIES
+# BANLIST / ANNOUNCEMENTS
 # ============================================================
 
 COUNTRIES = [
@@ -500,81 +548,78 @@ COUNTRIES = [
 ]
 
 
-# ============================================================
-# VARIED PLAYER NAMES
-# ============================================================
+# Different style from the old names.
+# This makes the banlist players look less repetitive.
 
-NAME_POOL = [
-    "xKryp7",
-    "M4rko",
-    "Zer0Aim",
-    "NexuS",
-    "iVortex",
-    "K1ngR",
-    "R3aper",
-    "Mihai.exe",
-    "D3v1l",
-    "Stryke",
-    "NoScopeR",
-    "Aqua",
-    "Ragnar",
-    "Kronix",
-    "Vexor",
-    "Drako",
-    "Nyx",
-    "F1re",
-    "Kairo",
-    "Ryxen",
-    "Sonic",
-    "Fenix",
-    "Axion",
-    "Toxic",
-    "Wraith",
-    "Spectre",
-    "Raptor",
-    "Inferno",
-    "Cryptex",
-    "Volt",
-    "ZeroX",
-    "ShadowZ",
-    "Revo",
-    "Nero",
-    "Karma",
-    "Flux",
-    "Havoc",
-    "Titan",
-    "Echo",
+NAME_FIRST = [
+    "Apex",
+    "Crimson",
+    "Obsidian",
     "Rogue",
-    "Blitz",
+    "Mercury",
+    "Titan",
+    "Infernal",
+    "Reaper",
+    "Wraith",
+    "Specter",
+    "Drift",
     "Onyx",
-    "VenomX",
-    "Frosty",
-    "GhostR",
-    "Striker",
-    "ViperX",
-    "Pulse",
-    "NovaX",
-    "DarkR",
-    "Riven",
-    "Krypt",
-    "Aero",
-    "Drax",
-    "Zenith",
-    "Maverick",
-    "Saber",
+    "Volt",
+    "Cipher",
+    "Grim",
+    "Havoc",
+    "Arctic",
+    "Phantom",
+    "Dagger",
     "Riot",
-    "Orbit",
+    "Eclipse",
+    "Vandal",
+    "Striker",
+    "Fury",
+    "Nomad",
+    "Vector",
+    "Talon",
+    "Maverick",
+    "Raptor",
+    "Chaos",
+]
+
+
+NAME_SECOND = [
+    "Zero",
+    "Seven",
+    "Prime",
+    "Rush",
+    "Core",
+    "Byte",
+    "Edge",
+    "One",
+    "Six",
+    "X",
+    "FX",
+    "Wave",
+    "Unit",
+    "Mode",
+    "Force",
+    "Pulse",
+    "Lock",
+    "Grid",
+    "Peak",
+    "Zone",
 ]
 
 
 USED_NAMES_FILE = "used_names.json"
 
 
-# ============================================================
-# USED NAMES
-# ============================================================
-
 def load_used_names():
+    """
+    Safely loads used names.
+
+    If used_names.json does not exist,
+    the bot simply starts with an empty set.
+    """
+
     try:
         with open(
             USED_NAMES_FILE,
@@ -595,7 +640,7 @@ def load_used_names():
         json.JSONDecodeError,
         OSError,
     ):
-        pass
+        return set()
 
     return set()
 
@@ -625,52 +670,56 @@ def save_used_names():
 
 
 def generate_unique_name():
-    available = [
-        name
-        for name in NAME_POOL
-        if name not in USED_NAMES
-    ]
+    """
+    Generates a different-looking player name
+    and remembers it in used_names.json.
+    """
 
-    if available:
-        name = random.choice(available)
+    for _ in range(200):
 
-    else:
-        # Once the main pool is exhausted,
-        # create a less repetitive fallback.
-        prefixes = [
-            "x",
-            "i",
-            "Mr",
-            "Dr",
-            "Its",
-            "The",
-            "Real",
-        ]
+        style = random.randint(1, 4)
 
-        bases = [
-            "Kryp",
-            "Rex",
-            "Vex",
-            "Nox",
-            "Zyn",
-            "Kairo",
-            "Riven",
-            "Axel",
-            "Drax",
-            "Nero",
-            "Stryke",
-            "Fenix",
-        ]
+        if style == 1:
 
-        while True:
             name = (
-                random.choice(prefixes)
-                + random.choice(bases)
+                random.choice(NAME_FIRST)
+                + random.choice(NAME_SECOND)
                 + str(random.randint(10, 999))
             )
 
-            if name not in USED_NAMES:
-                break
+        elif style == 2:
+
+            name = (
+                random.choice(NAME_FIRST)
+                + "_"
+                + random.choice(NAME_SECOND)
+                + str(random.randint(1, 99))
+            )
+
+        elif style == 3:
+
+            name = (
+                random.choice(NAME_FIRST)
+                + random.choice(NAME_SECOND)
+                + str(random.randint(1000, 9999))
+            )
+
+        else:
+
+            name = (
+                random.choice(NAME_FIRST)
+                + str(random.randint(100, 9999))
+            )
+
+        if name not in USED_NAMES:
+
+            USED_NAMES.add(name)
+            save_used_names()
+
+            return name
+
+    # Emergency fallback
+    name = f"Player{random.randint(100000, 999999)}"
 
     USED_NAMES.add(name)
     save_used_names()
@@ -770,10 +819,6 @@ REASONS = [
 ]
 
 
-# ============================================================
-# BANLIST MESSAGE
-# ============================================================
-
 def create_announcement_embed():
     flag, country = random.choice(COUNTRIES)
 
@@ -836,7 +881,7 @@ async def send_announcement():
 
     if channel is None:
         print(
-            "❌ Banlist channel not found."
+            "❌ Announcement channel not found."
         )
         return
 
@@ -846,21 +891,21 @@ async def send_announcement():
         )
 
         print(
-            "✅ Ban announcement sent."
+            "✅ Announcement sent."
         )
 
     except Exception as error:
         print(
-            f"❌ Ban announcement error: {error}"
+            f"❌ Announcement error: {error}"
         )
 
 
-# ============================================================
-# BANLIST LOOP
-# ============================================================
-
 @tasks.loop(hours=2)
 async def announcement_loop():
+    await asyncio.sleep(
+        random.randint(0, 3600)
+    )
+
     await send_announcement()
 
 
@@ -879,6 +924,7 @@ async def on_ready():
         f"✅ Dark Legacy connected as {bot.user}"
     )
 
+    # Start loops only once.
     if not status_loop.is_running():
         status_loop.start()
 
@@ -888,8 +934,7 @@ async def on_ready():
     if not announcement_loop.is_running():
         announcement_loop.start()
 
-    # These update the existing messages.
-    # They DO NOT create a new message if one already exists.
+    # Update the existing messages immediately.
     await update_server_status()
     await update_vip_status()
 
@@ -925,7 +970,7 @@ async def on_error(
 
 
 # ============================================================
-# START BOT
+# START
 # ============================================================
 
 if not TOKEN:
