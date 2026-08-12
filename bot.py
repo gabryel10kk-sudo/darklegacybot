@@ -22,8 +22,9 @@ BANLIST_CHANNEL_ID = 1536615625219252345
 MAX_PLAYERS = 32
 MAX_VIP_ONLINE = 16
 
+
 # ============================================================
-# GITHUB VIDEOS
+# GITHUB VIDEO URLS
 # ============================================================
 
 SERVER_STATUS_VIDEO_URL = (
@@ -37,6 +38,11 @@ VIP_VIDEO_URL = (
     "gabryel10kk-sudo/darklegacybot/main/"
     "%F0%9F%92%8E%20DARK%20LEGACY%20SUBSCRIPTION-compressed.mp4"
 )
+
+
+# ============================================================
+# LOCAL VIDEO FILES
+# ============================================================
 
 VIDEO_DIR = "videos"
 
@@ -92,56 +98,54 @@ MAPS = [
 # VIDEO DOWNLOAD
 # ============================================================
 
-def ensure_video(url, path):
-    """
-    Downloads a GitHub video only if it does not already exist.
-    """
-
+def download_video(url, path):
     os.makedirs(VIDEO_DIR, exist_ok=True)
 
-    if os.path.exists(path):
-        print(f"✅ Video already exists: {path}")
-        return True
-
     try:
-        print(f"⬇️ Downloading video: {path}")
+        print(f"⬇️ Checking video: {path}")
 
         urllib.request.urlretrieve(url, path)
 
         if os.path.exists(path):
             size_mb = os.path.getsize(path) / (1024 * 1024)
+
             print(
-                f"✅ Video downloaded: {path} "
+                f"✅ Video ready: {path} "
                 f"({size_mb:.2f} MB)"
             )
+
             return True
 
     except Exception as error:
-        print(f"❌ Video download failed: {error}")
+        print(
+            f"❌ Could not download {path}: {error}"
+        )
 
     return False
 
 
 def prepare_videos():
-    """
-    Downloads both Discord videos from GitHub.
-    """
+    print("🎬 Preparing videos...")
 
-    server_ok = ensure_video(
+    server_ok = download_video(
         SERVER_STATUS_VIDEO_URL,
-        SERVER_STATUS_VIDEO,
+        SERVER_STATUS_VIDEO
     )
 
-    vip_ok = ensure_video(
+    vip_ok = download_video(
         VIP_VIDEO_URL,
-        VIP_VIDEO,
+        VIP_VIDEO
     )
 
     if not server_ok:
-        print("⚠️ Server Status video is unavailable.")
+        print(
+            "⚠️ Server Status video unavailable."
+        )
 
     if not vip_ok:
-        print("⚠️ VIP video is unavailable.")
+        print(
+            "⚠️ VIP video unavailable."
+        )
 
 
 # ============================================================
@@ -158,14 +162,24 @@ def smooth_players(low, high):
         value = random.randint(low, high)
 
     else:
-        minimum = max(low, last_players - 3)
-        maximum = min(high, last_players + 3)
+        minimum = max(
+            low,
+            last_players - 3
+        )
+
+        maximum = min(
+            high,
+            last_players + 3
+        )
 
         if minimum > maximum:
             minimum = low
             maximum = high
 
-        value = random.randint(minimum, maximum)
+        value = random.randint(
+            minimum,
+            maximum
+        )
 
     last_players = value
 
@@ -173,22 +187,6 @@ def smooth_players(low, high):
 
 
 def get_players():
-    """
-    Simulated server population.
-
-    Morning:
-        minimum 8
-
-    Afternoon:
-        more active
-
-    Evening:
-        peak activity
-
-    Night:
-        still active
-    """
-
     hour = datetime.now().hour
 
     if 0 <= hour < 3:
@@ -224,15 +222,15 @@ intents = discord.Intents.default()
 bot = commands.Bot(
     command_prefix="!",
     intents=intents,
-    reconnect=True,
+    reconnect=True
 )
 
 
 # ============================================================
-# SERVER STATUS
+# SERVER STATUS EMBED
 # ============================================================
 
-def create_status_embed(image_url=None):
+def create_status_embed():
     players = get_players()
     current_map = random.choice(MAPS)
 
@@ -240,49 +238,44 @@ def create_status_embed(image_url=None):
         title="🎮 DARK LEGACY • SERVER STATUS",
         description="🟢 **SERVER ONLINE**",
         color=discord.Color.dark_red(),
-        timestamp=datetime.now(),
+        timestamp=datetime.now()
     )
 
     embed.add_field(
         name="🗺️ CURRENT MAP",
         value=f"`{current_map}`",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="👥 PLAYERS",
         value=f"`{players}/{MAX_PLAYERS}`",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="🌍 REGION",
         value="**INTERNATIONAL**",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="⚡ PERFORMANCE",
         value="**OPTIMIZED**",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="🌐 SERVER ACTIVITY",
         value="`24/7 ACTIVITY`",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="🔄 STATUS",
         value="**LIVE • AUTO UPDATE**",
-        inline=True,
+        inline=True
     )
-
-    if image_url:
-        embed.set_image(url=image_url)
-    else:
-        embed.set_image(url=BANNER_URL)
 
     embed.set_footer(
         text="Dark Legacy • Classic CS 1.6 Community"
@@ -292,157 +285,7 @@ def create_status_embed(image_url=None):
 
 
 # ============================================================
-# FIND EXISTING MESSAGE
-# ============================================================
-
-async def find_existing_message(channel, title):
-    """
-    Finds an existing bot message by embed title.
-    Prevents duplicate status messages after restarts.
-    """
-
-    try:
-        async for message in channel.history(limit=100):
-
-            if message.author.id != bot.user.id:
-                continue
-
-            if not message.embeds:
-                continue
-
-            if message.embeds[0].title == title:
-                return message
-
-    except Exception as error:
-        print(
-            f"❌ Could not search existing messages: {error}"
-        )
-
-    return None
-
-
-# ============================================================
-# GET EXISTING VIDEO URL
-# ============================================================
-
-def get_message_attachment_url(message):
-    """
-    Returns the first attachment URL if the message already
-    contains a video.
-    """
-
-    if not message.attachments:
-        return None
-
-    attachment = message.attachments[0]
-
-    if attachment.filename.lower().endswith(
-        (".mp4", ".mov", ".webm", ".gif")
-    ):
-        return attachment.url
-
-    return None
-
-
-# ============================================================
-# SERVER STATUS UPDATE
-# ============================================================
-
-async def update_server_status():
-    channel = bot.get_channel(STATUS_CHANNEL_ID)
-
-    if channel is None:
-        print("❌ Server Status channel not found.")
-        return
-
-    try:
-        message = await find_existing_message(
-            channel,
-            "🎮 DARK LEGACY • SERVER STATUS",
-        )
-
-        # ----------------------------------------------------
-        # EXISTING MESSAGE
-        # ----------------------------------------------------
-
-        if message is not None:
-
-            existing_video = get_message_attachment_url(
-                message
-            )
-
-            embed = create_status_embed(
-                existing_video
-            )
-
-            # IMPORTANT:
-            # Only edit the embed.
-            # The existing video remains attached.
-            await message.edit(
-                embed=embed
-            )
-
-            print(
-                "✅ Server Status updated "
-                "(same message, video preserved)."
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # CREATE NEW MESSAGE
-        # ----------------------------------------------------
-
-        embed = create_status_embed()
-
-        if os.path.exists(SERVER_STATUS_VIDEO):
-
-            file = discord.File(
-                SERVER_STATUS_VIDEO,
-                filename="server_status.mp4",
-            )
-
-            embed.set_image(
-                url="attachment://server_status.mp4"
-            )
-
-            await channel.send(
-                embed=embed,
-                file=file,
-            )
-
-            print(
-                "✅ Server Status created with video."
-            )
-
-        else:
-
-            await channel.send(
-                embed=embed
-            )
-
-            print(
-                "⚠️ Server Status created without video."
-            )
-
-    except Exception as error:
-        print(
-            f"❌ Server Status error: {error}"
-        )
-
-
-@tasks.loop(minutes=30)
-async def status_loop():
-    await update_server_status()
-
-
-@status_loop.before_loop
-async def before_status_loop():
-    await bot.wait_until_ready()
-
-
-# ============================================================
-# VIP STATUS
+# VIP SYSTEM
 # ============================================================
 
 VIP_START_TOTAL = 36
@@ -453,14 +296,6 @@ last_vip_online = None
 
 
 def get_total_vips():
-    """
-    36 VIPs initially.
-
-    Starting September 10, 2026,
-    total increases by 2 per day
-    until reaching 100.
-    """
-
     today = datetime.now().date()
 
     if today < VIP_GROWTH_START:
@@ -477,7 +312,7 @@ def get_total_vips():
 
     return min(
         total,
-        VIP_MAX_TOTAL,
+        VIP_MAX_TOTAL
     )
 
 
@@ -488,26 +323,24 @@ def get_vip_online():
 
     maximum = min(
         MAX_VIP_ONLINE,
-        total_vips,
+        total_vips
     )
 
     if last_vip_online is None:
-
         value = random.randint(
             5,
-            maximum,
+            maximum
         )
 
     else:
-
         minimum = max(
             1,
-            last_vip_online - 2,
+            last_vip_online - 2
         )
 
         maximum_value = min(
             maximum,
-            last_vip_online + 2,
+            last_vip_online + 2
         )
 
         if minimum > maximum_value:
@@ -516,7 +349,7 @@ def get_vip_online():
 
         value = random.randint(
             minimum,
-            maximum_value,
+            maximum_value
         )
 
     last_vip_online = value
@@ -539,7 +372,7 @@ def create_vip_status_embed():
             "*MONTHLY SUBSCRIPTION*"
         ),
         color=discord.Color.purple(),
-        timestamp=datetime.now(),
+        timestamp=datetime.now()
     )
 
     embed.add_field(
@@ -548,30 +381,173 @@ def create_vip_status_embed():
             f"**{vip_online} / "
             f"{MAX_VIP_ONLINE}**"
         ),
-        inline=False,
+        inline=False
     )
 
     embed.add_field(
         name="👑 TOTAL VIP PLAYERS",
         value=f"`{total_vips}`",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="💳 SUBSCRIPTION",
         value="**MONTHLY**",
-        inline=True,
+        inline=True
     )
 
     embed.set_footer(
-        text=(
-            "Dark Legacy • "
-            "Exclusive VIP Membership"
-        )
+        text="Dark Legacy • Exclusive VIP Membership"
     )
 
     return embed
 
+
+# ============================================================
+# FIND EXISTING BOT MESSAGE
+# ============================================================
+
+async def find_existing_message(
+    channel,
+    title
+):
+    try:
+        async for message in channel.history(
+            limit=100
+        ):
+            if message.author.id != bot.user.id:
+                continue
+
+            if not message.embeds:
+                continue
+
+            if message.embeds[0].title == title:
+                return message
+
+    except Exception as error:
+        print(
+            f"❌ Message search error: {error}"
+        )
+
+    return None
+
+
+# ============================================================
+# CHECK VIDEO ATTACHMENT
+# ============================================================
+
+def has_video_attachment(message):
+    for attachment in message.attachments:
+        filename = attachment.filename.lower()
+
+        if filename.endswith(
+            (
+                ".mp4",
+                ".mov",
+                ".webm"
+            )
+        ):
+            return True
+
+    return False
+
+
+# ============================================================
+# SERVER STATUS
+# ============================================================
+
+async def update_server_status():
+    channel = bot.get_channel(
+        STATUS_CHANNEL_ID
+    )
+
+    if channel is None:
+        print(
+            "❌ Server Status channel not found."
+        )
+        return
+
+    try:
+        message = await find_existing_message(
+            channel,
+            "🎮 DARK LEGACY • SERVER STATUS"
+        )
+
+        # ----------------------------------------------------
+        # EXISTING MESSAGE
+        # ----------------------------------------------------
+
+        if message is not None:
+
+            # Only update the embed.
+            # The existing video attachment stays
+            # attached to the message.
+            await message.edit(
+                embed=create_status_embed()
+            )
+
+            print(
+                "✅ Server Status updated."
+            )
+
+            return
+
+        # ----------------------------------------------------
+        # CREATE NEW MESSAGE WITH VIDEO
+        # ----------------------------------------------------
+
+        embed = create_status_embed()
+
+        if os.path.exists(
+            SERVER_STATUS_VIDEO
+        ):
+            file = discord.File(
+                SERVER_STATUS_VIDEO,
+                filename="server_status.mp4"
+            )
+
+            await channel.send(
+                embed=embed,
+                file=file
+            )
+
+            print(
+                "✅ Server Status created with video."
+            )
+
+        else:
+            await channel.send(
+                embed=embed
+            )
+
+            print(
+                "⚠️ Server Status created "
+                "without video."
+            )
+
+    except Exception as error:
+        print(
+            f"❌ Server Status error: {error}"
+        )
+
+
+# ============================================================
+# SERVER STATUS LOOP
+# ============================================================
+
+@tasks.loop(minutes=30)
+async def status_loop():
+    await update_server_status()
+
+
+@status_loop.before_loop
+async def before_status_loop():
+    await bot.wait_until_ready()
+
+
+# ============================================================
+# VIP STATUS
+# ============================================================
 
 async def update_vip_status():
     channel = bot.get_channel(
@@ -585,22 +561,21 @@ async def update_vip_status():
         return
 
     try:
-
         message = await find_existing_message(
             channel,
-            "💎 DARK LEGACY VIP",
+            "💎 DARK LEGACY VIP"
         )
 
-        embed = create_vip_status_embed()
-
         # ----------------------------------------------------
-        # EXISTING VIP MESSAGE
+        # EXISTING MESSAGE
         # ----------------------------------------------------
 
         if message is not None:
 
+            # Only update the embed.
+            # Existing VIP video stays attached.
             await message.edit(
-                embed=embed
+                embed=create_vip_status_embed()
             )
 
             print(
@@ -610,19 +585,21 @@ async def update_vip_status():
             return
 
         # ----------------------------------------------------
-        # CREATE VIP MESSAGE
+        # CREATE NEW VIP MESSAGE WITH VIDEO
         # ----------------------------------------------------
+
+        embed = create_vip_status_embed()
 
         if os.path.exists(VIP_VIDEO):
 
             file = discord.File(
                 VIP_VIDEO,
-                filename="vip.mp4",
+                filename="vip.mp4"
             )
 
             await channel.send(
                 embed=embed,
-                file=file,
+                file=file
             )
 
             print(
@@ -636,7 +613,8 @@ async def update_vip_status():
             )
 
             print(
-                "⚠️ VIP Status created without video."
+                "⚠️ VIP Status created "
+                "without video."
             )
 
     except Exception as error:
@@ -644,6 +622,10 @@ async def update_vip_status():
             f"❌ VIP Status error: {error}"
         )
 
+
+# ============================================================
+# VIP LOOP
+# ============================================================
 
 @tasks.loop(minutes=30)
 async def vip_status_loop():
@@ -656,7 +638,7 @@ async def before_vip_status_loop():
 
 
 # ============================================================
-# ANNOUNCEMENT / BANLIST
+# BANLIST
 # ============================================================
 
 COUNTRIES = [
@@ -753,14 +735,16 @@ SUFFIXES = [
 USED_NAMES_FILE = "used_names.json"
 
 
+# ============================================================
+# USED NAMES
+# ============================================================
+
 def load_used_names():
-
     try:
-
         with open(
             USED_NAMES_FILE,
             "r",
-            encoding="utf-8",
+            encoding="utf-8"
         ) as file:
 
             data = json.load(file)
@@ -774,7 +758,7 @@ def load_used_names():
     except (
         FileNotFoundError,
         json.JSONDecodeError,
-        OSError,
+        OSError
     ):
         pass
 
@@ -785,31 +769,27 @@ USED_NAMES = load_used_names()
 
 
 def save_used_names():
-
     try:
-
         with open(
             USED_NAMES_FILE,
             "w",
-            encoding="utf-8",
+            encoding="utf-8"
         ) as file:
 
             json.dump(
                 sorted(USED_NAMES),
                 file,
                 ensure_ascii=False,
-                indent=2,
+                indent=2
             )
 
     except OSError as error:
-
         print(
-            f"⚠️ Could not save used names: {error}"
+            f"⚠️ Could not save names: {error}"
         )
 
 
 def generate_unique_name():
-
     for _ in range(100):
 
         name = (
@@ -826,8 +806,8 @@ def generate_unique_name():
             return name
 
     name = (
-        f"Player"
-        f"{random.randint(100000, 999999)}"
+        "Player"
+        + str(random.randint(100000, 999999))
     )
 
     USED_NAMES.add(name)
@@ -845,91 +825,94 @@ REASONS = [
         "Aimbot",
         "Permanent",
         "🤖 Anti-Cheat",
-        "Dark Legacy Anti-Cheat",
+        "Dark Legacy Anti-Cheat"
     ),
     (
         "Wallhack",
         "Permanent",
         "🤖 Anti-Cheat",
-        "Dark Legacy Anti-Cheat",
+        "Dark Legacy Anti-Cheat"
     ),
     (
         "ESP",
         "Permanent",
         "🤖 Anti-Cheat",
-        "Dark Legacy Anti-Cheat",
+        "Dark Legacy Anti-Cheat"
     ),
     (
         "Speed Hack",
         "Permanent",
         "🤖 Anti-Cheat",
-        "Dark Legacy Anti-Cheat",
+        "Dark Legacy Anti-Cheat"
     ),
     (
         "Triggerbot",
         "Permanent",
         "🤖 Anti-Cheat",
-        "Dark Legacy Anti-Cheat",
+        "Dark Legacy Anti-Cheat"
     ),
     (
         "Cheat Software Detected",
         "Permanent",
         "🤖 Anti-Cheat",
-        "Dark Legacy Anti-Cheat",
+        "Dark Legacy Anti-Cheat"
     ),
     (
         "Bug Abuse",
         "7 Days",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
     (
         "Map Exploit",
         "3 Days",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
     (
         "Toxic Behavior",
         "2 Days",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
     (
         "Harassment",
         "3 Days",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
     (
         "Abusive Language",
         "1 Day",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
     (
         "Spam",
         "1 Day",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
     (
         "Ban Evasion",
         "14 Days",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
     (
         "Advertising",
         "3 Days",
         "👑 Admin",
-        "Dark Legacy Staff",
+        "Dark Legacy Staff"
     ),
 ]
 
 
-def create_announcement_embed():
+# ============================================================
+# BAN ANNOUNCEMENT
+# ============================================================
 
+def create_announcement_embed():
     flag, country = random.choice(
         COUNTRIES
     )
@@ -940,43 +923,43 @@ def create_announcement_embed():
         reason,
         duration,
         source_name,
-        source_value,
+        source_value
     ) = random.choice(REASONS)
 
     embed = discord.Embed(
         title="🔨 PLAYER BANNED",
         color=discord.Color.dark_red(),
-        timestamp=datetime.now(),
+        timestamp=datetime.now()
     )
 
     embed.add_field(
         name="👤 Player",
         value=f"`{player}`",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="🌎 Country",
         value=f"{flag} **{country}**",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="🛡️ Reason",
         value=f"`{reason}`",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name="⏱️ Duration",
         value=f"**{duration}**",
-        inline=True,
+        inline=True
     )
 
     embed.add_field(
         name=source_name,
         value=f"**{source_value}**",
-        inline=True,
+        inline=True
     )
 
     embed.set_footer(
@@ -987,39 +970,37 @@ def create_announcement_embed():
 
 
 async def send_announcement():
-
     channel = bot.get_channel(
         BANLIST_CHANNEL_ID
     )
 
     if channel is None:
-
         print(
-            "❌ Announcement channel not found."
+            "❌ Banlist channel not found."
         )
-
         return
 
     try:
-
         await channel.send(
             embed=create_announcement_embed()
         )
 
         print(
-            "✅ Announcement sent."
+            "✅ Ban announcement sent."
         )
 
     except Exception as error:
-
         print(
-            f"❌ Announcement error: {error}"
+            f"❌ Banlist error: {error}"
         )
 
 
+# ============================================================
+# BANLIST LOOP
+# ============================================================
+
 @tasks.loop(hours=2)
 async def announcement_loop():
-
     await asyncio.sleep(
         random.randint(0, 3600)
     )
@@ -1029,7 +1010,6 @@ async def announcement_loop():
 
 @announcement_loop.before_loop
 async def before_announcement_loop():
-
     await bot.wait_until_ready()
 
 
@@ -1044,10 +1024,10 @@ async def on_ready():
         f"✅ Dark Legacy connected as {bot.user}"
     )
 
-    # Download GitHub videos if needed.
+    # Download videos from GitHub.
     prepare_videos()
 
-    # Start loops only once.
+    # Start loops once.
     if not status_loop.is_running():
         status_loop.start()
 
@@ -1057,13 +1037,13 @@ async def on_ready():
     if not announcement_loop.is_running():
         announcement_loop.start()
 
-    # Initial status updates.
+    # Update existing messages or create them.
     await update_server_status()
     await update_vip_status()
 
 
 # ============================================================
-# CONNECTION EVENTS
+# DISCONNECT
 # ============================================================
 
 @bot.event
@@ -1075,6 +1055,10 @@ async def on_disconnect():
     )
 
 
+# ============================================================
+# RESUMED
+# ============================================================
+
 @bot.event
 async def on_resumed():
 
@@ -1083,11 +1067,15 @@ async def on_resumed():
     )
 
 
+# ============================================================
+# ERROR
+# ============================================================
+
 @bot.event
 async def on_error(
     event,
     *args,
-    **kwargs,
+    **kwargs
 ):
 
     print(
@@ -1096,11 +1084,10 @@ async def on_error(
 
 
 # ============================================================
-# START BOT
+# START
 # ============================================================
 
 if not TOKEN:
-
     raise RuntimeError(
         "TOKEN environment variable is missing."
     )
